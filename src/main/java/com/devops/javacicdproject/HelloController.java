@@ -8,6 +8,6 @@ public class HelloController {
 
     @GetMapping("/")
     public String hello() {
-        return "Hello DevOps! Jenkins automatic build is working!";
+        return "Hello DevOps! CI/CD Pipeline is working perfectly!";
     }
 }
