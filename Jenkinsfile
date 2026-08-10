@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     stages {
+
         stage('Checkout') {
             steps {
                 git branch: 'main',
@@ -18,6 +19,14 @@ pipeline {
         stage('Docker Build') {
             steps {
                 bat 'docker build -t java-cicd-project .'
+            }
+        }
+
+        stage('Docker Deploy') {
+            steps {
+                bat 'docker stop java-app || exit 0'
+                bat 'docker rm java-app || exit 0'
+                bat 'docker run -d -p 8080:8080 --name java-app java-cicd-project'
             }
         }
     }
