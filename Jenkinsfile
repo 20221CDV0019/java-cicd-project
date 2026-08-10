@@ -18,7 +18,25 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                bat 'docker build -t java-cicd-project .'
+                bat 'docker build -t 20221cdv0019/java-cicd-project:latest .'
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    bat '''
+                        echo %DOCKER_PASSWORD% | docker login -u %DOCKER_USERNAME% --password-stdin
+                        docker push 20221cdv0019/java-cicd-project:latest
+                        docker logout
+                    '''
+                }
             }
         }
 
@@ -26,7 +44,7 @@ pipeline {
             steps {
                 bat 'docker stop java-app || exit 0'
                 bat 'docker rm java-app || exit 0'
-                bat 'docker run -d -p 8080:8080 --name java-app java-cicd-project'
+                bat 'docker run -d -p 8080:8080 --name java-app 20221cdv0019/java-cicd-project:latest'
             }
         }
     }
