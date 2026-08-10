@@ -8,6 +8,6 @@ public class HelloController {
 
     @GetMapping("/")
     public String hello() {
-        return "Hello DevOps! Spring Boot is running successfully - CI/CD works!";
+        return "Hello DevOps! Jenkins automatic build is working!";
     }
 }
