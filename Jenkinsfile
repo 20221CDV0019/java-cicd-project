@@ -32,13 +32,15 @@ pipeline {
                     )
                 ]) {
 
-                    bat 'echo %DOCKER_PASSWORD% | docker login -u %DOCKER_USERNAME% --password-stdin'
+                    bat 'echo Username: %DOCKER_USERNAME%'
 
-                    timeout(time: 10, unit: 'MINUTES') {
-                        bat 'docker push %DOCKER_USERNAME%/java-cicd-project:latest'
-                    }
+                    bat 'if "%DOCKER_PASSWORD%"=="" (echo PASSWORD_EMPTY) else (echo PASSWORD_PRESENT)'
 
                     bat 'docker logout'
+
+                    bat 'echo %DOCKER_PASSWORD% | docker login -u %DOCKER_USERNAME% --password-stdin'
+
+                    bat 'docker push %DOCKER_USERNAME%/java-cicd-project:latest'
                 }
             }
         }
