@@ -32,9 +32,12 @@ pipeline {
                     )
                 ]) {
 
-                    bat 'echo Username: %DOCKER_USERNAME%'
+                    bat 'echo Jenkins username: %DOCKER_USERNAME%'
 
-                    bat 'if "%DOCKER_PASSWORD%"=="" (echo PASSWORD_EMPTY) else (echo PASSWORD_PRESENT)'
+                    powershell '''
+                        $length = $env:DOCKER_PASSWORD.Length
+                        Write-Host "Jenkins password length: $length"
+                    '''
 
                     bat 'docker logout'
 
