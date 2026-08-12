@@ -32,16 +32,24 @@ pipeline {
                     )
                 ]) {
 
-                    bat 'echo Jenkins username: %DOCKER_USERNAME%'
-
                     powershell '''
-                        $length = $env:DOCKER_PASSWORD.Length
-                        Write-Host "Jenkins password length: $length"
+                        Write-Host "Docker username: $env:DOCKER_USERNAME"
+
+                        if ([string]::IsNullOrEmpty($env:DOCKER_PASSWORD)) {
+                            Write-Host "Docker password is EMPTY"
+                            exit 1
+                        }
+
+                        Write-Host "Docker password is PRESENT"
+
+                        $env:DOCKER_PASSWORD | docker login `
+                            --username $env:DOCKER_USERNAME `
+                            --password-stdin
+
+                        if ($LASTEXITCODE -ne 0) {
+                            exit $LASTEXITCODE
+                        }
                     '''
-
-                    bat 'docker logout'
-
-                    bat 'echo %DOCKER_PASSWORD% | docker login -u %DOCKER_USERNAME% --password-stdin'
 
                     bat 'docker push %DOCKER_USERNAME%/java-cicd-project:latest'
                 }
@@ -52,7 +60,6 @@ pipeline {
             steps {
                 bat 'docker stop java-app || exit 0'
                 bat 'docker rm java-app || exit 0'
-
                 bat 'docker run -d -p 8080:8080 --name java-app 20221cdv0019/java-cicd-project:latest'
             }
         }
