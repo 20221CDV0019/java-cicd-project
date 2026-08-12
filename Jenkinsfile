@@ -31,7 +31,7 @@ pipeline {
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
                 ]) {
-                    bat 'docker context use desktop-linux'
+
                     bat 'echo %DOCKER_PASSWORD% | docker login -u %DOCKER_USERNAME% --password-stdin'
 
                     timeout(time: 10, unit: 'MINUTES') {
@@ -47,6 +47,7 @@ pipeline {
             steps {
                 bat 'docker stop java-app || exit 0'
                 bat 'docker rm java-app || exit 0'
+
                 bat 'docker run -d -p 8080:8080 --name java-app 20221cdv0019/java-cicd-project:latest'
             }
         }
