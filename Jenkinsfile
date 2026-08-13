@@ -24,6 +24,16 @@ pipeline {
 
         stage('Docker Push') {
             steps {
+
+                powershell '''
+                    Write-Host "=== Jenkins Docker Environment ==="
+                    whoami
+                    docker version
+                    docker context show
+                    docker info
+                    Write-Host "=================================="
+                '''
+
                 withCredentials([
                     string(
                         credentialsId: 'dockerhub-pat',
