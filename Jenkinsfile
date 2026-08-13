@@ -25,25 +25,15 @@ pipeline {
         stage('Docker Push') {
             steps {
                 withCredentials([
-                    usernamePassword(
-                        credentialsId: 'dockerhub-credentials',
-                        usernameVariable: 'DOCKER_USERNAME',
-                        passwordVariable: 'DOCKER_PASSWORD'
+                    string(
+                        credentialsId: 'dockerhub-pat',
+                        variable: 'DOCKER_PAT'
                     )
                 ]) {
 
                     powershell '''
-                        Write-Host "Docker username: $env:DOCKER_USERNAME"
-
-                        if ([string]::IsNullOrEmpty($env:DOCKER_PASSWORD)) {
-                            Write-Host "Docker password is EMPTY"
-                            exit 1
-                        }
-
-                        Write-Host "Docker password is PRESENT"
-
-                        $env:DOCKER_PASSWORD | docker login `
-                            --username $env:DOCKER_USERNAME `
+                        $env:DOCKER_PAT | docker login `
+                            --username "20221cdv0019" `
                             --password-stdin
 
                         if ($LASTEXITCODE -ne 0) {
@@ -51,7 +41,11 @@ pipeline {
                         }
                     '''
 
-                    bat 'docker push %DOCKER_USERNAME%/java-cicd-project:latest'
+                    bat 'docker push 20221cdv0019/java-cicd-project:latest'
+
+                    powershell '''
+                        docker logout
+                    '''
                 }
             }
         }
@@ -60,6 +54,7 @@ pipeline {
             steps {
                 bat 'docker stop java-app || exit 0'
                 bat 'docker rm java-app || exit 0'
+
                 bat 'docker run -d -p 8080:8080 --name java-app 20221cdv0019/java-cicd-project:latest'
             }
         }
