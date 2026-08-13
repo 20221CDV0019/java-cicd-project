@@ -32,25 +32,36 @@ pipeline {
                 ]) {
 
                     powershell '''
-                        Write-Host "Logging in to Docker Hub..."
+                        $tempFile = Join-Path $env:TEMP "docker-pat-$env:BUILD_NUMBER.txt"
 
-                        $env:DOCKER_PAT | docker login `
-                            --username "20221cdv0019" `
-                            --password-stdin
+                        try {
+                            [System.IO.File]::WriteAllText(
+                                $tempFile,
+                                $env:DOCKER_PAT,
+                                [System.Text.UTF8Encoding]::new($false)
+                            )
 
-                        if ($LASTEXITCODE -ne 0) {
-                            Write-Error "Docker Hub login failed"
-                            exit $LASTEXITCODE
+                            Write-Host "Logging in to Docker Hub..."
+
+                            cmd /c "docker login -u 20221cdv0019 --password-stdin < `"$tempFile`""
+
+                            if ($LASTEXITCODE -ne 0) {
+                                throw "Docker Hub login failed"
+                            }
+
+                            Write-Host "Docker Hub login successful"
+
                         }
-
-                        Write-Host "Docker Hub login successful"
+                        finally {
+                            if (Test-Path $tempFile) {
+                                Remove-Item $tempFile -Force
+                            }
+                        }
                     '''
 
                     bat 'docker push 20221cdv0019/java-cicd-project:latest'
 
-                    powershell '''
-                        docker logout
-                    '''
+                    bat 'docker logout'
                 }
             }
         }
