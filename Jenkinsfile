@@ -3,13 +3,64 @@ pipeline {
 
     stages {
 
-        stage('Test Docker as Jenkins') {
+        stage('Checkout') {
             steps {
-                bat '''
-                    whoami
-                    docker version
-                    docker context show
-                '''
+                git branch: 'main',
+                    url: 'https://github.com/20221CDV0019/java-cicd-project.git'
+            }
+        }
+
+        stage('Build & Test') {
+            steps {
+                bat 'mvnw.cmd clean test'
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                bat 'docker build -t 20221cdv0019/java-cicd-project:latest .'
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                withCredentials([
+                    string(
+                        credentialsId: 'dockerhub-pat',
+                        variable: 'DOCKER_PAT'
+                    )
+                ]) {
+
+                    powershell '''
+                        Write-Host "Logging in to Docker Hub..."
+
+                        $env:DOCKER_PAT | docker login `
+                            --username "20221cdv0019" `
+                            --password-stdin
+
+                        if ($LASTEXITCODE -ne 0) {
+                            Write-Error "Docker Hub login failed"
+                            exit $LASTEXITCODE
+                        }
+
+                        Write-Host "Docker Hub login successful"
+                    '''
+
+                    bat 'docker push 20221cdv0019/java-cicd-project:latest'
+
+                    powershell '''
+                        docker logout
+                    '''
+                }
+            }
+        }
+
+        stage('Docker Deploy') {
+            steps {
+                bat 'docker stop java-app || exit 0'
+                bat 'docker rm java-app || exit 0'
+
+                bat 'docker run -d -p 8080:8080 --name java-app 20221cdv0019/java-cicd-project:latest'
             }
         }
     }
