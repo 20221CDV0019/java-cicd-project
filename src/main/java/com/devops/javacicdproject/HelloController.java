@@ -8,6 +8,6 @@ public class HelloController {
 
     @GetMapping("/")
     public String home() {
-        return "Java CI/CD Project - Version 2";
+        return "Java CI/CD Project - Version 2 is Working!";
     }
 }
