@@ -10,30 +10,8 @@ pipeline {
             }
         }
 
-        stage('Build & Test') {
+        stage('Check Jenkins PAT') {
             steps {
-                bat 'mvnw.cmd clean test'
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                bat 'docker build -t 20221cdv0019/java-cicd-project:latest .'
-            }
-        }
-
-        stage('Docker Push') {
-            steps {
-
-                powershell '''
-                    Write-Host "=== Jenkins Docker Environment ==="
-                    whoami
-                    docker version
-                    docker context show
-                    docker info
-                    Write-Host "=================================="
-                '''
-
                 withCredentials([
                     string(
                         credentialsId: 'dockerhub-pat',
@@ -42,30 +20,18 @@ pipeline {
                 ]) {
 
                     powershell '''
-                        $env:DOCKER_PAT | docker login `
-                            --username "20221cdv0019" `
-                            --password-stdin
+                        $sha = [System.Security.Cryptography.SHA256]::Create()
 
-                        if ($LASTEXITCODE -ne 0) {
-                            exit $LASTEXITCODE
-                        }
-                    '''
+                        $hash = [BitConverter]::ToString(
+                            $sha.ComputeHash(
+                                [Text.Encoding]::UTF8.GetBytes($env:DOCKER_PAT)
+                            )
+                        ).Replace("-", "")
 
-                    bat 'docker push 20221cdv0019/java-cicd-project:latest'
-
-                    powershell '''
-                        docker logout
+                        Write-Host "Jenkins PAT SHA256:"
+                        Write-Host $hash
                     '''
                 }
-            }
-        }
-
-        stage('Docker Deploy') {
-            steps {
-                bat 'docker stop java-app || exit 0'
-                bat 'docker rm java-app || exit 0'
-
-                bat 'docker run -d -p 8080:8080 --name java-app 20221cdv0019/java-cicd-project:latest'
             }
         }
     }
