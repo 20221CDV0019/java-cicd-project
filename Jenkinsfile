@@ -1,5 +1,12 @@
 pipeline {
+
     agent any
+
+    environment {
+        DOCKER_IMAGE = "20221cdv0019/java-cicd-project"
+        DOCKER_TAG = "${BUILD_NUMBER}"
+        DOCKER_CREDENTIALS = "dockerhub-pat"
+    }
 
     stages {
 
@@ -24,20 +31,26 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                bat 'docker build -t 20221cdv0019/java-cicd-project:latest -t 20221cdv0019/java-cicd-project:%BUILD_NUMBER% .'
+                bat """
+                    docker build -t %DOCKER_IMAGE%:latest .
+                    docker tag %DOCKER_IMAGE%:latest %DOCKER_IMAGE%:%DOCKER_TAG%
+                """
             }
         }
 
         stage('Docker Push') {
             steps {
+
                 withCredentials([
                     string(
-                        credentialsId: 'dockerhub-pat',
+                        credentialsId: "${DOCKER_CREDENTIALS}",
                         variable: 'DOCKER_PAT'
                     )
                 ]) {
 
                     powershell '''
+                        Write-Host "Logging in to Docker Hub..."
+
                         $tempFile = Join-Path $env:TEMP "docker-pat-$env:BUILD_NUMBER.txt"
 
                         try {
@@ -47,8 +60,6 @@ pipeline {
                                 [System.Text.UTF8Encoding]::new($false)
                             )
 
-                            Write-Host "Logging in to Docker Hub..."
-
                             cmd /c "docker login -u 20221cdv0019 --password-stdin < `"$tempFile`""
 
                             if ($LASTEXITCODE -ne 0) {
@@ -56,7 +67,6 @@ pipeline {
                             }
 
                             Write-Host "Docker Hub login successful"
-
                         }
                         finally {
                             if (Test-Path $tempFile) {
@@ -65,9 +75,9 @@ pipeline {
                         }
                     '''
 
-                    bat 'docker push 20221cdv0019/java-cicd-project:latest'
+                    bat 'docker push %DOCKER_IMAGE%:latest'
 
-                    bat 'docker push 20221cdv0019/java-cicd-project:%BUILD_NUMBER%'
+                    bat 'docker push %DOCKER_IMAGE%:%DOCKER_TAG%'
 
                     bat 'docker logout'
                 }
@@ -76,10 +86,12 @@ pipeline {
 
         stage('Docker Deploy') {
             steps {
+
                 bat 'docker stop java-app || exit 0'
+
                 bat 'docker rm java-app || exit 0'
 
-                bat 'docker run -d -p 8080:8080 --name java-app 20221cdv0019/java-cicd-project:latest'
+                bat 'docker run -d -p 8080:8080 --name java-app %DOCKER_IMAGE%:latest'
 
                 powershell '''
                     Write-Host "Waiting for application health check..."
@@ -88,36 +100,74 @@ pipeline {
                     $healthy = $false
 
                     for ($i = 1; $i -le 30; $i++) {
+
+                        Write-Host "Health check attempt $i/30"
+
                         try {
-                            $response = Invoke-WebRequest `
-                                -Uri $healthUrl `
-                                -UseBasicParsing `
-                                -TimeoutSec 3
 
-                            Write-Host "Health check response: $($response.Content)"
+                            $response = curl.exe -s $healthUrl
 
-                            $health = $response.Content | ConvertFrom-Json
+                            Write-Host "Health check response: $response"
 
-                            if ($response.StatusCode -eq 200 -and $health.status -eq 'UP') {
+                            if ($response -match '"status"\\s*:\\s*"UP"') {
+
                                 $healthy = $true
+
                                 Write-Host "Application is healthy!"
+
                                 break
                             }
                         }
                         catch {
-                            Write-Host "Application is not ready yet... attempt $i/30"
+
+                            Write-Host "Application is not ready yet..."
                         }
 
                         Start-Sleep -Seconds 2
                     }
 
                     if (-not $healthy) {
+
                         Write-Host "Application health check failed."
+
+                        Write-Host "Docker container status:"
+                        docker ps -a --filter "name=java-app"
+
+                        Write-Host "Docker container logs:"
                         docker logs java-app
+
                         throw "Docker application did not become healthy."
                     }
                 '''
             }
+        }
+    }
+
+    post {
+
+        success {
+            echo "=========================================="
+            echo "CI/CD PIPELINE SUCCESSFUL"
+            echo "=========================================="
+            echo "Docker Image: ${DOCKER_IMAGE}:latest"
+            echo "Build Number: ${BUILD_NUMBER}"
+            echo "Application: http://localhost:8080"
+            echo "Health: http://localhost:8080/actuator/health"
+            echo "=========================================="
+        }
+
+        failure {
+            echo "=========================================="
+            echo "CI/CD PIPELINE FAILED"
+            echo "=========================================="
+            bat 'docker ps -a || exit 0'
+            bat 'docker logs java-app || exit 0'
+            echo "Please check the Jenkins console output."
+            echo "=========================================="
+        }
+
+        always {
+            echo "Pipeline completed."
         }
     }
 }
