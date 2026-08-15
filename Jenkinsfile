@@ -135,16 +135,12 @@ pipeline {
 
                         try {
 
-                            $response = Invoke-WebRequest `
-                                -Uri $healthUrl `
-                                -UseBasicParsing `
-                                -TimeoutSec 3
+                            $response = curl.exe -s $healthUrl
 
-                            Write-Host "Health check response: $($response.Content)"
+                            Write-Host "Health check response:"
+                            Write-Host $response
 
-                            $health = $response.Content | ConvertFrom-Json
-
-                            if ($response.StatusCode -eq 200 -and $health.status -eq "UP") {
+                            if ($response.Contains('"status":"UP"')) {
 
                                 $healthy = $true
 
@@ -155,7 +151,7 @@ pipeline {
                         }
                         catch {
 
-                            Write-Host "Application is not ready yet... attempt $i/30"
+                            Write-Host "Application is not ready yet..."
                         }
 
                         Start-Sleep -Seconds 2
@@ -186,8 +182,8 @@ pipeline {
             echo "=========================================="
             echo "Docker Image: ${DOCKER_IMAGE}:latest"
             echo "Build Number: ${BUILD_NUMBER}"
-            echo "Application: http://localhost:8080"
-            echo "Health: http://localhost:8080/actuator/health"
+            echo "Local Application: http://localhost:8080"
+            echo "Local Health: http://localhost:8080/actuator/health"
             echo "Render: https://java-cicd-project-unx5.onrender.com"
             echo "=========================================="
         }
