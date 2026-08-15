@@ -80,6 +80,41 @@ pipeline {
                 bat 'docker rm java-app || exit 0'
 
                 bat 'docker run -d -p 8080:8080 --name java-app 20221cdv0019/java-cicd-project:latest'
+
+                powershell '''
+                    Write-Host "Waiting for application health check..."
+
+                    $healthUrl = "http://localhost:8080/actuator/health"
+                    $healthy = $false
+
+                    for ($i = 1; $i -le 30; $i++) {
+                        try {
+                            $response = Invoke-WebRequest `
+                                -Uri $healthUrl `
+                                -UseBasicParsing `
+                                -TimeoutSec 3
+
+                            Write-Host "Health check response: $($response.Content)"
+
+                            if ($response.StatusCode -eq 200 -and $response.Content -match '"status"\s*:\s*"UP"') {
+                                $healthy = $true
+                                Write-Host "Application is healthy!"
+                                break
+                            }
+                        }
+                        catch {
+                            Write-Host "Application is not ready yet... attempt $i/30"
+                        }
+
+                        Start-Sleep -Seconds 2
+                    }
+
+                    if (-not $healthy) {
+                        Write-Host "Application health check failed."
+                        docker logs java-app
+                        throw "Docker application did not become healthy."
+                    }
+                '''
             }
         }
     }
