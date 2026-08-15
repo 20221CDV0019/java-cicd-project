@@ -84,6 +84,36 @@ pipeline {
             }
         }
 
+        stage('Trigger Render Deploy') {
+            steps {
+
+                withCredentials([
+                    string(
+                        credentialsId: 'render-deploy-hook',
+                        variable: 'RENDER_DEPLOY_HOOK'
+                    )
+                ]) {
+
+                    powershell '''
+                        Write-Host "Triggering Render deployment..."
+
+                        $response = Invoke-WebRequest `
+                            -Uri $env:RENDER_DEPLOY_HOOK `
+                            -Method Post `
+                            -UseBasicParsing
+
+                        Write-Host "Render response status: $($response.StatusCode)"
+
+                        if ($response.StatusCode -lt 200 -or $response.StatusCode -ge 300) {
+                            throw "Render deployment trigger failed."
+                        }
+
+                        Write-Host "Render deployment triggered successfully."
+                    '''
+                }
+            }
+        }
+
         stage('Docker Deploy') {
             steps {
 
@@ -105,11 +135,16 @@ pipeline {
 
                         try {
 
-                            $response = curl.exe -s $healthUrl
+                            $response = Invoke-WebRequest `
+                                -Uri $healthUrl `
+                                -UseBasicParsing `
+                                -TimeoutSec 3
 
-                            Write-Host "Health check response: $response"
+                            Write-Host "Health check response: $($response.Content)"
 
-                            if ($response -match '"status"\\s*:\\s*"UP"') {
+                            $health = $response.Content | ConvertFrom-Json
+
+                            if ($response.StatusCode -eq 200 -and $health.status -eq "UP") {
 
                                 $healthy = $true
 
@@ -120,7 +155,7 @@ pipeline {
                         }
                         catch {
 
-                            Write-Host "Application is not ready yet..."
+                            Write-Host "Application is not ready yet... attempt $i/30"
                         }
 
                         Start-Sleep -Seconds 2
@@ -153,6 +188,7 @@ pipeline {
             echo "Build Number: ${BUILD_NUMBER}"
             echo "Application: http://localhost:8080"
             echo "Health: http://localhost:8080/actuator/health"
+            echo "Render: https://java-cicd-project-unx5.onrender.com"
             echo "=========================================="
         }
 
@@ -160,8 +196,11 @@ pipeline {
             echo "=========================================="
             echo "CI/CD PIPELINE FAILED"
             echo "=========================================="
+
             bat 'docker ps -a || exit 0'
+
             bat 'docker logs java-app || exit 0'
+
             echo "Please check the Jenkins console output."
             echo "=========================================="
         }
