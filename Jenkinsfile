@@ -96,7 +96,9 @@ pipeline {
 
                             Write-Host "Health check response: $($response.Content)"
 
-                            if ($response.StatusCode -eq 200 -and $response.Content -match '"status"\s*:\s*"UP"') {
+                            $health = $response.Content | ConvertFrom-Json
+
+                            if ($response.StatusCode -eq 200 -and $health.status -eq 'UP') {
                                 $healthy = $true
                                 Write-Host "Application is healthy!"
                                 break
