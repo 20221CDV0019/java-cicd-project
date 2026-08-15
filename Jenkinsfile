@@ -24,7 +24,7 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                bat 'docker build -t 20221cdv0019/java-cicd-project:latest .'
+                bat 'docker build -t 20221cdv0019/java-cicd-project:latest -t 20221cdv0019/java-cicd-project:%BUILD_NUMBER% .'
             }
         }
 
@@ -66,6 +66,8 @@ pipeline {
                     '''
 
                     bat 'docker push 20221cdv0019/java-cicd-project:latest'
+
+                    bat 'docker push 20221cdv0019/java-cicd-project:%BUILD_NUMBER%'
 
                     bat 'docker logout'
                 }
